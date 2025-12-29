@@ -38,7 +38,7 @@
         <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Login</h2>
         <div class="space-y-4">
             <input v-model="loginForm.user" type="text" placeholder="Username" class="w-full p-3 rounded-lg outline-none focus:ring-2 ring-blue-400 transition text-center">
-            <p class="text-slate-500 text-xs text-center opacity-70">Enter any username to get started.</p>
+            <p class="text-slate-500 text-xs text-center opacity-70">Enter your name to access the dashboard.</p>
             <button @click="handleLogin" class="w-full bg-slate-800 text-white font-bold p-3 rounded-lg hover:bg-slate-700 transition">Sign In</button>
         </div>
     </div>
@@ -47,7 +47,7 @@
         <div class="flex justify-between items-center bg-white/40 p-4 rounded-xl backdrop-blur-sm border border-black/5">
             <div>
                 <h1 class="text-xl font-bold text-slate-800">Payroll Dashboard</h1>
-                <p class="text-sm text-slate-500">Welcome back, <span class="font-semibold text-blue-600">{{ username }}</span></p>
+                <p class="text-sm text-slate-500">Welcome, <span class="font-semibold text-blue-600">{{ username }}</span></p>
             </div>
             <button @click="handleLogout" class="text-sm bg-red-500/10 hover:bg-red-500/20 text-red-600 px-4 py-2 rounded-lg border border-red-200 transition">Logout</button>
         </div>
@@ -74,11 +74,8 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm mb-1 text-slate-600 font-semibold text-blue-700">Receive De Minimis?</label>
-                            <select v-model="form.hasDeminimis" class="w-full p-2 rounded-lg border-blue-200 ring-2 ring-blue-50">
-                                <option :value="true">Yes (147.12/day)</option>
-                                <option :value="false">No</option>
-                            </select>
+                            <label class="block text-sm mb-1 text-blue-700 font-semibold">De Minimis Input (Monthly)</label>
+                            <input v-model.number="form.deMinimisInput" type="number" placeholder="e.g. 3200" class="w-full p-2 rounded-lg border-blue-100 ring-2 ring-blue-50">
                         </div>
                     </div>
 
@@ -125,26 +122,28 @@
             </div>
 
             <div class="lg:col-span-1">
-                <div class="glass rounded-2xl p-6 sticky top-8">
-                    <h3 class="text-xl font-bold mb-6 text-center border-b border-black/5 pb-4">Net Salary Summary</h3>
+                <div class="glass rounded-2xl p-6 sticky top-8 border border-blue-100">
+                    <h3 class="text-xl font-bold mb-6 text-center border-b border-black/5 pb-4">Calculation Result</h3>
                     <div class="space-y-3 text-sm">
-                        <div class="flex justify-between"><span>Per Day:</span><span class="font-mono">{{ format(perDay) }}</span></div>
+                        <div class="flex justify-between"><span>Daily Rate:</span><span class="font-mono">{{ format(perDay) }}</span></div>
                         <div class="flex justify-between"><span>Basic Pay:</span><span class="font-mono">{{ format(basicPay) }}</span></div>
-                        <div class="flex justify-between"><span>ND Total:</span><span class="font-mono">{{ format(totalNDAmount) }}</span></div>
-                        <div class="flex justify-between" :class="{'opacity-40': !form.hasDeminimis}">
-                            <span>De Minimis:</span><span class="font-mono">{{ format(deminimis) }}</span>
+                        <div class="flex justify-between"><span>Total ND:</span><span class="font-mono">{{ format(totalNDAmount) }}</span></div>
+                        <div class="flex justify-between border-b border-dashed pb-2">
+                            <span class="text-blue-700 font-medium">De Minimis:</span>
+                            <span class="font-mono font-bold">{{ format(deminimisTotal) }}</span>
                         </div>
-                        <div v-if="legalPay > 0" class="flex justify-between text-green-600"><span>Legal Hol.:</span><span class="font-mono">+{{ format(legalPay) }}</span></div>
-                        <div v-if="specialPay > 0" class="flex justify-between text-green-600"><span>Special Hol.:</span><span class="font-mono">+{{ format(specialPay) }}</span></div>
                         
-                        <div class="border-t pt-2 flex justify-between font-bold text-lg text-slate-900">
+                        <div v-if="legalPay > 0" class="flex justify-between text-green-600"><span>Legal Holiday:</span><span class="font-mono">+{{ format(legalPay) }}</span></div>
+                        <div v-if="specialPay > 0" class="flex justify-between text-green-600"><span>Special Holiday:</span><span class="font-mono">+{{ format(specialPay) }}</span></div>
+                        
+                        <div class="pt-2 flex justify-between font-bold text-lg text-slate-900">
                             <span>Gross Pay:</span><span>{{ format(grossPay) }}</span>
                         </div>
-                        <div class="border-t pt-2 text-red-600">
-                            <div class="flex justify-between"><span>Gov + Leave:</span><span>- {{ format(totalDeductions) }}</span></div>
+                        <div class="text-red-600 space-y-1">
+                            <div class="flex justify-between"><span>Total Deductions:</span><span>- {{ format(totalDeductions) }}</span></div>
                         </div>
-                        <div class="mt-6 p-4 bg-slate-800 rounded-xl text-center text-white shadow-xl">
-                            <p class="text-xs uppercase opacity-70 mb-1 tracking-widest">Take Home Pay</p>
+                        <div class="mt-6 p-4 bg-slate-800 rounded-xl text-center text-white shadow-lg">
+                            <p class="text-xs uppercase opacity-70 mb-1 tracking-widest">Net Salary</p>
                             <p class="text-3xl font-bold">{{ format(netPay) }}</p>
                         </div>
                     </div>
@@ -164,23 +163,31 @@
             const loginForm = ref({ user: '' });
 
             const form = ref({
-                basicSalary: 0, daysWorked: 0,
-                ndMode: 'fixed10', nd10Days: 0, nd20Days: 0,
-                hasDeminimis: true, // Toggle for De Minimis
-                hasLegal: false, legalDays: 0,
-                hasSpecial: false, specialDays: 0,
-                sss: 0, philhealth: 0, hdmf: 0, leaveDays: 0
+                basicSalary: 0, 
+                daysWorked: 0,
+                ndMode: 'fixed10', 
+                nd10Days: 0, 
+                nd20Days: 0,
+                deMinimisInput: 3200, 
+                hasLegal: false, 
+                legalDays: 0,
+                hasSpecial: false, 
+                specialDays: 0,
+                sss: 0, 
+                philhealth: 0, 
+                hdmf: 0, 
+                leaveDays: 0
             });
 
-            // Auto-save logic
-            watch(form, (val) => localStorage.setItem('payroll_data', JSON.stringify(val)), { deep: true });
+            // Persist changes
+            watch(form, (val) => localStorage.setItem('payroll_data_v2', JSON.stringify(val)), { deep: true });
 
             onMounted(() => {
                 const session = localStorage.getItem('user_session');
                 if (session) {
                     username.value = JSON.parse(session).user;
                     isLoggedIn.value = true;
-                    const saved = localStorage.getItem('payroll_data');
+                    const saved = localStorage.getItem('payroll_data_v2');
                     if (saved) form.value = JSON.parse(saved);
                 }
             });
@@ -190,7 +197,7 @@
                     localStorage.setItem('user_session', JSON.stringify({ user: loginForm.value.user }));
                     username.value = loginForm.value.user;
                     isLoggedIn.value = true;
-                    const saved = localStorage.getItem('payroll_data');
+                    const saved = localStorage.getItem('payroll_data_v2');
                     if (saved) form.value = JSON.parse(saved);
                 }
             };
@@ -213,15 +220,18 @@
                 return part10 + part20;
             });
 
-            // Dynamic De Minimis logic
-            const deminimis = computed(() => {
-                return form.value.hasDeminimis ? (147.12 * form.value.daysWorked) : 0;
+            // Updated De Minimis Calculation
+            const deminimisTotal = computed(() => {
+                const dailyRate = (form.value.deMinimisInput * 12) / 261;
+                // Rounding to 2 decimal places (hundredths) per day
+                const roundedDaily = Math.round(dailyRate * 100) / 100;
+                return roundedDaily * form.value.daysWorked;
             });
 
             const legalPay = computed(() => form.value.hasLegal ? (perDay.value * form.value.legalDays) : 0);
             const specialPay = computed(() => form.value.hasSpecial ? (perDay.value * 0.30 * form.value.specialDays) : 0);
             
-            const grossPay = computed(() => basicPay.value + totalNDAmount.value + deminimis.value + legalPay.value + specialPay.value);
+            const grossPay = computed(() => basicPay.value + totalNDAmount.value + deminimisTotal.value + (legalPay.value || 0) + (specialPay.value || 0));
             
             const totalDeductions = computed(() => {
                 const gov = (form.value.sss || 0) + (form.value.philhealth || 0) + (form.value.hdmf || 0);
@@ -233,7 +243,7 @@
 
             const format = (val) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val || 0);
 
-            return { isLoggedIn, username, loginForm, handleLogin, handleLogout, form, perDay, basicPay, totalNDAmount, deminimis, legalPay, specialPay, grossPay, totalDeductions, netPay, format }
+            return { isLoggedIn, username, loginForm, handleLogin, handleLogout, form, perDay, basicPay, totalNDAmount, deminimisTotal, legalPay, specialPay, grossPay, totalDeductions, netPay, format }
         }
     }).mount('#app');
 </script>
