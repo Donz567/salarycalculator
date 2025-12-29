@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Salary Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            min-height: 100vh;
+            color: #1e293b;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+        }
+        input, select {
+            background: rgba(255, 255, 255, 0.8) !important;
+            border: 1px solid rgba(0, 0, 0, 0.1) !important;
+            color: #1e293b !important;
+        }
+        input::placeholder { color: rgba(0, 0, 0, 0.4); }
+        option { color: black; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+<div id="app" class="max-w-4xl mx-auto">
+    <div v-if="!isLoggedIn" class="glass rounded-2xl p-8 max-w-md mx-auto mt-20">
+        <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Login</h2>
+        <div class="space-y-4">
+            <input v-model="loginForm.user" type="text" placeholder="Username" class="w-full p-3 rounded-lg outline-none focus:ring-2 ring-blue-400 transition">
+            <input v-model="loginForm.pass" type="password" placeholder="Password" class="w-full p-3 rounded-lg outline-none focus:ring-2 ring-blue-400 transition">
+            <button @click="handleLogin" class="w-full bg-slate-800 text-white font-bold p-3 rounded-lg hover:bg-slate-700 transition">Sign In</button>
+        </div>
+    </div>
+
+    <div v-else class="space-y-6">
+        <div class="flex justify-between items-center bg-white/40 p-4 rounded-xl backdrop-blur-sm border border-black/5">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">Payroll Dashboard</h1>
+                <p class="text-sm text-slate-500">Welcome, <span class="font-semibold text-blue-600">{{ username }}</span></p>
+            </div>
+            <button @click="handleLogout" class="text-sm bg-red-500/10 hover:bg-red-500/20 text-red-600 px-4 py-2 rounded-lg border border-red-200 transition">Logout</button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 space-y-6">
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold mb-4 border-b border-black/5 pb-2 text-slate-800">Earnings & Attendance</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm mb-1 text-slate-600">Basic Salary</label>
+                            <input v-model.number="form.basicSalary" type="number" class="w-full p-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-1 text-slate-600">Total Days Worked</label>
+                            <input v-model.number="form.daysWorked" type="number" class="w-full p-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-1 text-slate-600">Night Differential Mode</label>
+                            <select v-model="form.ndMode" class="w-full p-2 rounded-lg">
+                                <option value="fixed10">Fixed 10%</option>
+                                <option value="fixed20">Fixed 20%</option>
+                                <option value="mixed">Mixed Rates</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div v-if="form.ndMode === 'mixed'" class="mt-4 grid grid-cols-2 gap-4 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                        <div>
+                            <label class="block text-xs font-bold text-blue-600 mb-1">Days at 10% ND</label>
+                            <input v-model.number="form.nd10Days" type="number" class="w-full p-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-blue-600 mb-1">Days at 20% ND</label>
+                            <input v-model.number="form.nd20Days" type="number" class="w-full p-2 rounded-lg">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div class="p-3 bg-black/5 rounded-lg">
+                            <label class="block text-sm mb-1 font-medium">Legal Holiday?</label>
+                            <select v-model="form.hasLegal" class="w-full p-2 rounded-lg mb-2">
+                                <option :value="false">No</option>
+                                <option :value="true">Yes</option>
+                            </select>
+                            <input v-if="form.hasLegal" v-model.number="form.legalDays" type="number" placeholder="Days" class="w-full p-2 rounded-lg">
+                        </div>
+                        <div class="p-3 bg-black/5 rounded-lg">
+                            <label class="block text-sm mb-1 font-medium">Special Holiday?</label>
+                            <select v-model="form.hasSpecial" class="w-full p-2 rounded-lg mb-2">
+                                <option :value="false">No</option>
+                                <option :value="true">Yes</option>
+                            </select>
+                            <input v-if="form.hasSpecial" v-model.number="form.specialDays" type="number" placeholder="Days" class="w-full p-2 rounded-lg">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold mb-4 border-b border-black/5 pb-2 text-slate-800">Government & Deductions</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div v-for="key in ['sss', 'philhealth', 'hdmf', 'leaveDays']" :key="key">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">{{ key }}</label>
+                            <input v-model.number="form[key]" type="number" class="w-full p-2 rounded-lg">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-1">
+                <div class="glass rounded-2xl p-6 sticky top-8">
+                    <h3 class="text-xl font-bold mb-6 text-center border-b border-black/5 pb-4">Calculation</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between"><span>Per Day:</span><span class="font-mono">{{ format(perDay) }}</span></div>
+                        <div class="flex justify-between"><span>Basic Pay:</span><span class="font-mono">{{ format(basicPay) }}</span></div>
+                        <div class="flex justify-between"><span>ND Total:</span><span class="font-mono">{{ format(totalNDAmount) }}</span></div>
+                        <div class="flex justify-between"><span>De Minimis:</span><span class="font-mono">{{ format(deminimis) }}</span></div>
+                        <div class="border-t pt-2 flex justify-between font-bold text-lg">
+                            <span>Gross:</span><span>{{ format(grossPay) }}</span>
+                        </div>
+                        <div class="border-t pt-2 text-red-500">
+                            <div class="flex justify-between"><span>Deductions:</span><span>- {{ format(totalDeductions) }}</span></div>
+                        </div>
+                        <div class="mt-6 p-4 bg-slate-800 rounded-xl text-center text-white">
+                            <p class="text-xs uppercase opacity-70 mb-1">Final Salary</p>
+                            <p class="text-3xl font-bold">{{ format(netPay) }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted, watch } = Vue;
+
+    createApp({
+        setup() {
+            const isLoggedIn = ref(false);
+            const username = ref('');
+            const loginForm = ref({ user: '', pass: '' });
+
+            const form = ref({
+                basicSalary: 0, daysWorked: 0,
+                ndMode: 'fixed10', nd10Days: 0, nd20Days: 0,
+                hasLegal: false, legalDays: 0,
+                hasSpecial: false, specialDays: 0,
+                sss: 0, philhealth: 0, hdmf: 0, leaveDays: 0
+            });
+
+            // Persist changes
+            watch(form, (val) => localStorage.setItem('payroll_data', JSON.stringify(val)), { deep: true });
+
+            onMounted(() => {
+                const session = localStorage.getItem('user_session');
+                if (session) {
+                    username.value = JSON.parse(session).user;
+                    isLoggedIn.value = true;
+                    const saved = localStorage.getItem('payroll_data');
+                    if (saved) form.value = JSON.parse(saved);
+                }
+            });
+
+            const handleLogin = () => {
+                if (loginForm.value.user) {
+                    localStorage.setItem('user_session', JSON.stringify(loginForm.value));
+                    username.value = loginForm.value.user;
+                    isLoggedIn.value = true;
+                }
+            };
+
+            const handleLogout = () => {
+                localStorage.removeItem('user_session');
+                isLoggedIn.value = false;
+            };
+
+            const perDay = computed(() => (form.value.basicSalary * 12) / 261);
+            const basicPay = computed(() => perDay.value * form.value.daysWorked);
+            
+            // Custom Mixed ND Logic
+            const totalNDAmount = computed(() => {
+                if (form.value.ndMode === 'fixed10') return basicPay.value * 0.10;
+                if (form.value.ndMode === 'fixed20') return basicPay.value * 0.20;
+                // Mixed calculation: (DailyRate * DaysAtRate * Rate%)
+                const part10 = perDay.value * (form.value.nd10Days || 0) * 0.10;
+                const part20 = perDay.value * (form.value.nd20Days || 0) * 0.20;
+                return part10 + part20;
+            });
+
+            const deminimis = computed(() => 147.12 * form.value.daysWorked);
+            const legalPay = computed(() => form.value.hasLegal ? (perDay.value * form.value.legalDays) : 0);
+            const specialPay = computed(() => form.value.hasSpecial ? (perDay.value * 0.30 * form.value.specialDays) : 0);
+            
+            const grossPay = computed(() => basicPay.value + totalNDAmount.value + deminimis.value + legalPay.value + specialPay.value);
+            const totalDeductions = computed(() => form.value.sss + form.value.philhealth + form.value.hdmf + (147.12 * form.value.leaveDays));
+            const netPay = computed(() => grossPay.value - totalDeductions.value);
+
+            const format = (val) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val || 0);
+
+            return { isLoggedIn, username, loginForm, handleLogin, handleLogout, form, perDay, basicPay, totalNDAmount, deminimis, legalPay, specialPay, grossPay, totalDeductions, netPay, format }
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
