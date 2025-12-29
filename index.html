@@ -37,7 +37,7 @@
         <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Login</h2>
         <div class="space-y-4">
             <input v-model="loginForm.user" type="text" placeholder="Username" class="w-full p-3 rounded-lg outline-none focus:ring-2 ring-blue-400 transition">
-            <input v-model="loginForm.pass" type="password" placeholder="Password" class="w-full p-3 rounded-lg outline-none focus:ring-2 ring-blue-400 transition">
+            <p class="text-slate-500 text-xs text-center opacity-70">Enter any username to get started.</p>
             <button @click="handleLogin" class="w-full bg-slate-800 text-white font-bold p-3 rounded-lg hover:bg-slate-700 transition">Sign In</button>
         </div>
     </div>
@@ -109,7 +109,7 @@
                     <h3 class="text-lg font-semibold mb-4 border-b border-black/5 pb-2 text-slate-800">Government & Deductions</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div v-for="key in ['sss', 'philhealth', 'hdmf', 'leaveDays']" :key="key">
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">{{ key }}</label>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">{{ key === 'leaveDays' ? 'Leave No.' : key }}</label>
                             <input v-model.number="form[key]" type="number" class="w-full p-2 rounded-lg">
                         </div>
                     </div>
@@ -124,6 +124,9 @@
                         <div class="flex justify-between"><span>Basic Pay:</span><span class="font-mono">{{ format(basicPay) }}</span></div>
                         <div class="flex justify-between"><span>ND Total:</span><span class="font-mono">{{ format(totalNDAmount) }}</span></div>
                         <div class="flex justify-between"><span>De Minimis:</span><span class="font-mono">{{ format(deminimis) }}</span></div>
+                        <div v-if="legalPay > 0" class="flex justify-between text-green-600"><span>Legal Hol.:</span><span class="font-mono">+{{ format(legalPay) }}</span></div>
+                        <div v-if="specialPay > 0" class="flex justify-between text-green-600"><span>Special Hol.:</span><span class="font-mono">+{{ format(specialPay) }}</span></div>
+                        
                         <div class="border-t pt-2 flex justify-between font-bold text-lg">
                             <span>Gross:</span><span>{{ format(grossPay) }}</span>
                         </div>
@@ -148,7 +151,7 @@
         setup() {
             const isLoggedIn = ref(false);
             const username = ref('');
-            const loginForm = ref({ user: '', pass: '' });
+            const loginForm = ref({ user: '' }); // Password property removed
 
             const form = ref({
                 basicSalary: 0, daysWorked: 0,
@@ -158,7 +161,7 @@
                 sss: 0, philhealth: 0, hdmf: 0, leaveDays: 0
             });
 
-            // Persist changes
+            // Persist changes to inputs
             watch(form, (val) => localStorage.setItem('payroll_data', JSON.stringify(val)), { deep: true });
 
             onMounted(() => {
@@ -172,26 +175,30 @@
             });
 
             const handleLogin = () => {
-                if (loginForm.value.user) {
-                    localStorage.setItem('user_session', JSON.stringify(loginForm.value));
+                if (loginForm.value.user.trim()) {
+                    localStorage.setItem('user_session', JSON.stringify({ user: loginForm.value.user }));
                     username.value = loginForm.value.user;
                     isLoggedIn.value = true;
+                    
+                    const saved = localStorage.getItem('payroll_data');
+                    if (saved) form.value = JSON.parse(saved);
                 }
             };
 
             const handleLogout = () => {
                 localStorage.removeItem('user_session');
                 isLoggedIn.value = false;
+                username.value = '';
             };
 
+            // Business Logic Calculations
             const perDay = computed(() => (form.value.basicSalary * 12) / 261);
             const basicPay = computed(() => perDay.value * form.value.daysWorked);
             
-            // Custom Mixed ND Logic
             const totalNDAmount = computed(() => {
                 if (form.value.ndMode === 'fixed10') return basicPay.value * 0.10;
                 if (form.value.ndMode === 'fixed20') return basicPay.value * 0.20;
-                // Mixed calculation: (DailyRate * DaysAtRate * Rate%)
+                
                 const part10 = perDay.value * (form.value.nd10Days || 0) * 0.10;
                 const part20 = perDay.value * (form.value.nd20Days || 0) * 0.20;
                 return part10 + part20;
@@ -202,7 +209,7 @@
             const specialPay = computed(() => form.value.hasSpecial ? (perDay.value * 0.30 * form.value.specialDays) : 0);
             
             const grossPay = computed(() => basicPay.value + totalNDAmount.value + deminimis.value + legalPay.value + specialPay.value);
-            const totalDeductions = computed(() => form.value.sss + form.value.philhealth + form.value.hdmf + (147.12 * form.value.leaveDays));
+            const totalDeductions = computed(() => (form.value.sss || 0) + (form.value.philhealth || 0) + (form.value.hdmf || 0) + (147.12 * (form.value.leaveDays || 0)));
             const netPay = computed(() => grossPay.value - totalDeductions.value);
 
             const format = (val) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val || 0);
