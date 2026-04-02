@@ -77,6 +77,10 @@
                             <label class="block text-sm mb-1 text-blue-700 font-semibold">De Minimis Input (Monthly)</label>
                             <input v-model.number="form.deMinimisInput" type="number" placeholder="e.g. 3200" class="w-full p-2 rounded-lg border-blue-100 ring-2 ring-blue-50">
                         </div>
+                        <div>
+                            <label class="block text-sm mb-1 text-green-700 font-semibold">Additional (e.g. OT)</label>
+                            <input v-model.number="form.additionalPay" type="number" placeholder="Enter amount" class="w-full p-2 rounded-lg border-green-100 ring-2 ring-green-50">
+                        </div>
                     </div>
 
                     <div v-if="form.ndMode === 'mixed'" class="mt-4 grid grid-cols-2 gap-4 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
@@ -135,13 +139,26 @@
                         
                         <div v-if="legalPay > 0" class="flex justify-between text-green-600"><span>Legal Holiday:</span><span class="font-mono">+{{ format(legalPay) }}</span></div>
                         <div v-if="specialPay > 0" class="flex justify-between text-green-600"><span>Special Holiday:</span><span class="font-mono">+{{ format(specialPay) }}</span></div>
+                        <div v-if="form.additionalPay > 0" class="flex justify-between text-green-600"><span>Additional:</span><span class="font-mono">+{{ format(form.additionalPay) }}</span></div>
                         
-                        <div class="pt-2 flex justify-between font-bold text-lg text-slate-900">
+                        <div class="pt-2 flex justify-between font-bold text-lg text-slate-900 border-b border-black/10 pb-2 mb-2">
                             <span>Gross Pay:</span><span>{{ format(grossPay) }}</span>
                         </div>
-                        <div class="text-red-600 space-y-1">
-                            <div class="flex justify-between"><span>Total Deductions:</span><span>- {{ format(totalDeductions) }}</span></div>
+                        
+                        <div class="text-red-600 bg-red-50 p-3 rounded-lg border border-red-100 space-y-1">
+                            <div class="font-bold text-xs uppercase tracking-wider mb-2 text-red-800">Deductions Breakdown</div>
+                            <div class="flex justify-between text-xs"><span>Gov't Contributions:</span><span>- {{ format(govDeductions) }}</span></div>
+                            
+                            <template v-if="form.leaveDays > 0">
+                                <div v-if="ndLeaveDeduction > 0" class="flex justify-between text-xs"><span>Leave ND Deduction:</span><span>- {{ format(ndLeaveDeduction) }}</span></div>
+                                <div v-if="deminimisLeaveDeduction > 0" class="flex justify-between text-xs"><span>Leave De Minimis Deduction:</span><span>- {{ format(deminimisLeaveDeduction) }}</span></div>
+                            </template>
+                            
+                            <div class="flex justify-between font-bold pt-2 mt-2 border-t border-red-200 text-sm">
+                                <span>Total Deductions:</span><span>- {{ format(totalDeductions) }}</span>
+                            </div>
                         </div>
+
                         <div class="mt-6 p-4 bg-slate-800 rounded-xl text-center text-white shadow-lg">
                             <p class="text-xs uppercase opacity-70 mb-1 tracking-widest">Net Salary</p>
                             <p class="text-3xl font-bold">{{ format(netPay) }}</p>
@@ -169,6 +186,7 @@
                 nd10Days: 0, 
                 nd20Days: 0,
                 deMinimisInput: 3200, 
+                additionalPay: 0,
                 hasLegal: false, 
                 legalDays: 0,
                 hasSpecial: false, 
@@ -220,30 +238,51 @@
                 return part10 + part20;
             });
 
-            // Updated De Minimis Calculation
+            // FIXED De Minimis Calculation (Truncated to avoid rounding up to 147.13)
             const deminimisTotal = computed(() => {
                 const dailyRate = (form.value.deMinimisInput * 12) / 261;
-                // Rounding to 2 decimal places (hundredths) per day
-                const roundedDaily = Math.round(dailyRate * 100) / 100;
-                return roundedDaily * form.value.daysWorked;
+                // Changed Math.round to Math.floor to chop off decimals rather than rounding them up
+                const truncatedDaily = Math.floor(dailyRate * 100) / 100;
+                return truncatedDaily * form.value.daysWorked;
             });
 
             const legalPay = computed(() => form.value.hasLegal ? (perDay.value * form.value.legalDays) : 0);
             const specialPay = computed(() => form.value.hasSpecial ? (perDay.value * 0.30 * form.value.specialDays) : 0);
             
-            const grossPay = computed(() => basicPay.value + totalNDAmount.value + deminimisTotal.value + (legalPay.value || 0) + (specialPay.value || 0));
+            const grossPay = computed(() => basicPay.value + totalNDAmount.value + deminimisTotal.value + (legalPay.value || 0) + (specialPay.value || 0) + (form.value.additionalPay || 0));
             
+            // --- DEDUCTION LOGIC ---
+            
+            const govDeductions = computed(() => (form.value.sss || 0) + (form.value.philhealth || 0) + (form.value.hdmf || 0));
+            
+            const ndLeaveDeduction = computed(() => {
+                if (form.value.daysWorked > 0 && form.value.leaveDays > 0) {
+                    return (totalNDAmount.value / form.value.daysWorked) * form.value.leaveDays;
+                }
+                return 0;
+            });
+
+            const deminimisLeaveDeduction = computed(() => {
+                if (form.value.daysWorked > 0 && form.value.leaveDays > 0) {
+                    return (deminimisTotal.value / form.value.daysWorked) * form.value.leaveDays;
+                }
+                return 0;
+            });
+
             const totalDeductions = computed(() => {
-                const gov = (form.value.sss || 0) + (form.value.philhealth || 0) + (form.value.hdmf || 0);
-                const leave = 147.12 * (form.value.leaveDays || 0);
-                return gov + leave;
+                return govDeductions.value + ndLeaveDeduction.value + deminimisLeaveDeduction.value;
             });
 
             const netPay = computed(() => grossPay.value - totalDeductions.value);
 
             const format = (val) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val || 0);
 
-            return { isLoggedIn, username, loginForm, handleLogin, handleLogout, form, perDay, basicPay, totalNDAmount, deminimisTotal, legalPay, specialPay, grossPay, totalDeductions, netPay, format }
+            return { 
+                isLoggedIn, username, loginForm, handleLogin, handleLogout, form, 
+                perDay, basicPay, totalNDAmount, deminimisTotal, legalPay, specialPay, grossPay, 
+                govDeductions, ndLeaveDeduction, deminimisLeaveDeduction, 
+                totalDeductions, netPay, format 
+            }
         }
     }).mount('#app');
 </script>
