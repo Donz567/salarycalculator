@@ -33,7 +33,7 @@
 </head>
 <body class="p-4 md:p-8">
 
-<div id="app" class="max-w-4xl mx-auto">
+<div id="app" class="max-w-7xl mx-auto">
     <div v-if="!isLoggedIn" class="glass rounded-2xl p-8 max-w-md mx-auto mt-20">
         <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Login</h2>
         <div class="space-y-4">
@@ -52,7 +52,62 @@
             <button @click="handleLogout" class="text-sm bg-red-500/10 hover:bg-red-500/20 text-red-600 px-4 py-2 rounded-lg border border-red-200 transition">Logout</button>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <!-- LEFT: Dynamic Calendar -->
+            <div class="lg:col-span-1">
+                <div class="glass rounded-2xl p-6 sticky top-8">
+                    <h3 class="text-lg font-bold mb-4 text-center border-b border-black/5 pb-2 text-slate-800">Holidays Calendar</h3>
+                    
+                    <!-- Calendar Header -->
+                    <div class="flex justify-between items-center mb-4">
+                        <button @click="prevMonth" class="p-1 rounded hover:bg-black/5 transition">&larr;</button>
+                        <span class="font-semibold text-sm">{{ currentMonthName }} {{ currentYear }}</span>
+                        <button @click="nextMonth" class="p-1 rounded hover:bg-black/5 transition">&rarr;</button>
+                    </div>
+
+                    <!-- Calendar Grid -->
+                    <div class="grid grid-cols-7 gap-1 text-center text-xs mb-2 font-bold text-slate-500">
+                        <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 text-center text-xs">
+                        <div v-for="day in calendarDays" :key="day.id"
+                             class="p-1.5 rounded flex items-center justify-center cursor-default transition-colors duration-200"
+                             :class="{
+                                 'bg-blue-600 text-white font-bold shadow-md': day.holiday && day.holiday.type === 'Regular',
+                                 'bg-orange-500 text-white font-bold shadow-md': day.holiday && day.holiday.type === 'Special',
+                                 'text-slate-300': !day.isCurrentMonth,
+                                 'hover:bg-slate-200': !day.holiday && day.isCurrentMonth,
+                                 'bg-slate-100 text-slate-700': !day.holiday && day.isCurrentMonth
+                             }"
+                             :title="day.holiday ? day.holiday.name + ' (' + day.holiday.type + ')' : ''"
+                        >
+                            {{ day.date.getDate() }}
+                        </div>
+                    </div>
+
+                    <!-- Legend & Events List -->
+                    <div class="mt-6">
+                        <div class="flex items-center gap-4 text-xs mb-3 pb-2 border-b border-black/5 justify-center">
+                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-600 inline-block"></span> Legal/Regular</div>
+                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-orange-500 inline-block"></span> Special</div>
+                        </div>
+
+                        <div v-if="currentMonthHolidays.length === 0" class="text-xs text-slate-400 text-center italic mt-4">
+                            No holidays this month.
+                        </div>
+                        <div v-else class="space-y-3 mt-4 max-h-[300px] overflow-y-auto pr-1">
+                            <div v-for="h in currentMonthHolidays" :key="h.date" class="flex flex-col border-l-4 pl-3 py-1 bg-white/50 rounded-r-lg"
+                                 :class="h.type === 'Regular' ? 'border-blue-600' : 'border-orange-500'">
+                                <span class="font-bold text-sm text-slate-800">{{ h.dateDisplay }} - {{ h.name }}</span>
+                                <span class="text-xs font-medium" :class="h.type === 'Regular' ? 'text-blue-600' : 'text-orange-500'">{{ h.type }} Holiday</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CENTER: Forms -->
             <div class="lg:col-span-2 space-y-6">
                 <div class="glass rounded-2xl p-6">
                     <h3 class="text-lg font-semibold mb-4 border-b border-black/5 pb-2 text-slate-800">Earnings & Attendance</h3>
@@ -96,7 +151,7 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                         <div class="p-3 bg-black/5 rounded-lg">
-                            <label class="block text-sm mb-1 font-medium">Legal Holiday?</label>
+                            <label class="block text-sm mb-1 font-medium">Legal Holiday Worked?</label>
                             <select v-model="form.hasLegal" class="w-full p-2 rounded-lg mb-2">
                                 <option :value="false">No</option>
                                 <option :value="true">Yes</option>
@@ -104,7 +159,7 @@
                             <input v-if="form.hasLegal" v-model.number="form.legalDays" type="number" placeholder="No. of Holiday" class="w-full p-2 rounded-lg">
                         </div>
                         <div class="p-3 bg-black/5 rounded-lg">
-                            <label class="block text-sm mb-1 font-medium">Special Holiday?</label>
+                            <label class="block text-sm mb-1 font-medium">Special Holiday Worked?</label>
                             <select v-model="form.hasSpecial" class="w-full p-2 rounded-lg mb-2">
                                 <option :value="false">No</option>
                                 <option :value="true">Yes</option>
@@ -125,6 +180,7 @@
                 </div>
             </div>
 
+            <!-- RIGHT: Calculation Result -->
             <div class="lg:col-span-1">
                 <div class="glass rounded-2xl p-6 sticky top-8 border border-blue-100">
                     <h3 class="text-xl font-bold mb-6 text-center border-b border-black/5 pb-4">Calculation Result</h3>
@@ -175,6 +231,7 @@
 
     createApp({
         setup() {
+            // -- App State --
             const isLoggedIn = ref(false);
             const username = ref('');
             const loginForm = ref({ user: '' });
@@ -197,7 +254,83 @@
                 leaveDays: 0
             });
 
-            // Persist changes
+            // -- Calendar State & Logic --
+            const calendarDate = ref(new Date()); 
+            
+            // Philippine Holidays 2026 Database (Including Cebu local holidays)
+            const holidays = ref([
+                { date: '2026-01-01', name: "New Year's Day", type: 'Regular' },
+                { date: '2026-02-17', name: 'Chinese New Year', type: 'Special' },
+                { date: '2026-02-24', name: 'Cebu City Charter Day', type: 'Special' },
+                { date: '2026-02-25', name: 'EDSA People Power', type: 'Special' },
+                { date: '2026-04-02', name: 'Maundy Thursday', type: 'Regular' },
+                { date: '2026-04-03', name: 'Good Friday', type: 'Regular' },
+                { date: '2026-04-04', name: 'Black Saturday', type: 'Special' },
+                { date: '2026-04-09', name: 'Araw ng Kagitingan', type: 'Regular' },
+                { date: '2026-05-01', name: 'Labor Day', type: 'Regular' },
+                { date: '2026-06-12', name: 'Independence Day', type: 'Regular' },
+                { date: '2026-08-06', name: 'Cebu Provincial Charter Day', type: 'Special' },
+                { date: '2026-08-21', name: 'Ninoy Aquino Day', type: 'Special' },
+                { date: '2026-08-31', name: 'National Heroes Day', type: 'Regular' },
+                { date: '2026-09-09', name: 'Osmeña Day', type: 'Special' },
+                { date: '2026-11-01', name: "All Saints' Day", type: 'Special' },
+                { date: '2026-11-02', name: "All Souls' Day", type: 'Special' },
+                { date: '2026-11-30', name: 'Bonifacio Day', type: 'Regular' },
+                { date: '2026-12-08', name: 'Feast of the Immaculate Conception', type: 'Special' },
+                { date: '2026-12-24', name: 'Christmas Eve', type: 'Special' },
+                { date: '2026-12-25', name: 'Christmas Day', type: 'Regular' },
+                { date: '2026-12-30', name: 'Rizal Day', type: 'Regular' },
+                { date: '2026-12-31', name: 'Last Day of the Year', type: 'Special' }
+            ]);
+
+            const currentMonthName = computed(() => calendarDate.value.toLocaleString('default', { month: 'long' }));
+            const currentYear = computed(() => calendarDate.value.getFullYear());
+
+            const prevMonth = () => {
+                calendarDate.value = new Date(calendarDate.value.getFullYear(), calendarDate.value.getMonth() - 1, 1);
+            };
+            
+            const nextMonth = () => {
+                calendarDate.value = new Date(calendarDate.value.getFullYear(), calendarDate.value.getMonth() + 1, 1);
+            };
+
+            const calendarDays = computed(() => {
+                const year = calendarDate.value.getFullYear();
+                const month = calendarDate.value.getMonth();
+                const firstDay = new Date(year, month, 1);
+                const lastDay = new Date(year, month + 1, 0);
+
+                const days = [];
+                // Previous month padding
+                for (let i = 0; i < firstDay.getDay(); i++) {
+                    days.push({ id: `prev-${i}`, date: new Date(year, month, -firstDay.getDay() + i + 1), isCurrentMonth: false });
+                }
+                // Current month days
+                for (let i = 1; i <= lastDay.getDate(); i++) {
+                    const d = new Date(year, month, i);
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                    const holiday = holidays.value.find(h => h.date === dateStr);
+                    days.push({ id: `curr-${i}`, date: d, isCurrentMonth: true, holiday });
+                }
+                // Next month padding
+                const remaining = 42 - days.length; 
+                for (let i = 1; i <= remaining; i++) {
+                    days.push({ id: `next-${i}`, date: new Date(year, month + 1, i), isCurrentMonth: false });
+                }
+                return days;
+            });
+
+            const currentMonthHolidays = computed(() => {
+                return holidays.value.filter(h => {
+                    const hDate = new Date(h.date);
+                    return hDate.getMonth() === calendarDate.value.getMonth() && hDate.getFullYear() === calendarDate.value.getFullYear();
+                }).map(h => ({
+                    ...h,
+                    dateDisplay: new Date(h.date).getDate()
+                }));
+            });
+
+            // -- Session Handling --
             watch(form, (val) => localStorage.setItem('payroll_data_v2', JSON.stringify(val)), { deep: true });
 
             onMounted(() => {
@@ -226,7 +359,7 @@
                 username.value = '';
             };
 
-            // Calculation Logic
+            // -- Calculation Logic --
             const perDay = computed(() => (form.value.basicSalary * 12) / 261);
             const basicPay = computed(() => perDay.value * form.value.daysWorked);
             
@@ -238,10 +371,8 @@
                 return part10 + part20;
             });
 
-            // FIXED De Minimis Calculation (Truncated to avoid rounding up to 147.13)
             const deminimisTotal = computed(() => {
                 const dailyRate = (form.value.deMinimisInput * 12) / 261;
-                // Changed Math.round to Math.floor to chop off decimals rather than rounding them up
                 const truncatedDaily = Math.floor(dailyRate * 100) / 100;
                 return truncatedDaily * form.value.daysWorked;
             });
@@ -250,8 +381,6 @@
             const specialPay = computed(() => form.value.hasSpecial ? (perDay.value * 0.30 * form.value.specialDays) : 0);
             
             const grossPay = computed(() => basicPay.value + totalNDAmount.value + deminimisTotal.value + (legalPay.value || 0) + (specialPay.value || 0) + (form.value.additionalPay || 0));
-            
-            // --- DEDUCTION LOGIC ---
             
             const govDeductions = computed(() => (form.value.sss || 0) + (form.value.philhealth || 0) + (form.value.hdmf || 0));
             
@@ -279,6 +408,7 @@
 
             return { 
                 isLoggedIn, username, loginForm, handleLogin, handleLogout, form, 
+                calendarDays, currentMonthName, currentYear, prevMonth, nextMonth, currentMonthHolidays,
                 perDay, basicPay, totalNDAmount, deminimisTotal, legalPay, specialPay, grossPay, 
                 govDeductions, ndLeaveDeduction, deminimisLeaveDeduction, 
                 totalDeductions, netPay, format 
